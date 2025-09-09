@@ -195,9 +195,22 @@ Process shipping invoices from FedEx, UPS, and USPS to calculate weighted averag
 ### 4.2 FedEx Field Mapping
 **Test Requirements:**
 - [ ] Write test mapping FedEx headers to common schema
-- [ ] Write test for FedEx-specific field variations
+- [ ] Write test for FedEx-specific field variations:
+  - [ ] "Tracking Number" (12-digit numeric) → tracking_number
+  - [ ] "Invoice Date" → invoice_date 
+  - [ ] "Ship Date" → ship_date
+  - [ ] "Service Type" → service_type (SmartPost, FedEx 2Day, etc.)
+  - [ ] "Net Charge" (with $) → shipping_cost
+  - [ ] "Actual Weight"/"Billed Weight" → actual_weight/billed_weight
+  - [ ] "Recipient Company" → recipient_name
+  - [ ] "Reference 1" (M-numbers like "M931508") → reference_1
+  - [ ] "Reference 2" (#-numbers like "#459871") → reference_2
+  - [ ] "Reference 4" ("LOL509" account ID) → reference_4
+  - [ ] "Zone" (inconsistent format: "05" vs "5") → zone
+  - [ ] Package dimensions: "Dim Length/Width/Height" → package_*
 - [ ] Write test against actual FedEx sample files
 - [ ] Write test for missing field handling
+- [ ] Write test for zone format normalization ("05" → "5")
 
 **Implementation Requirements:**
 - [ ] Create comprehensive FedEx field mapping dictionary
@@ -217,9 +230,20 @@ Process shipping invoices from FedEx, UPS, and USPS to calculate weighted averag
 ### 4.3 UPS Field Mapping
 **Test Requirements:**
 - [ ] Write test mapping UPS headers to common schema
-- [ ] Write test for UPS-specific field variations
+- [ ] Write test for UPS-specific field variations:
+  - [ ] "Tracking Number" (18-char: "1Z" + alphanumeric) → tracking_number
+  - [ ] "Carrier Invoice Date" → invoice_date
+  - [ ] "Pickup Date" → ship_date
+  - [ ] "Service" → service_type (Ground Residential, 2nd Day Air, etc.)
+  - [ ] "Shipping Cost" (direct cost field) → shipping_cost
+  - [ ] "Billed Weight" (no actual weight field) → billed_weight
+  - [ ] "Recipient Name" → recipient_name
+  - [ ] "Reference 1" ("LOLAID" ~70% + order numbers ~30%) → reference_1
+  - [ ] "Reference 2" (#-numbers + M-numbers) → reference_2
+  - [ ] "Origin State" (99.9% "ID") → origin_state
 - [ ] Write test against actual UPS sample files  
 - [ ] Write test for missing field handling
+- [ ] Write test for handling invalid entries (value "0" in text fields)
 
 **Implementation Requirements:**
 - [ ] Create comprehensive UPS field mapping dictionary
@@ -255,6 +279,61 @@ Process shipping invoices from FedEx, UPS, and USPS to calculate weighted averag
 - Processes all USPS sample files successfully
 
 **Quality Gate:** 100% of USPS sample files successfully mapped to common schema
+
+---
+
+## PHASE 4.5: PRODUCT CATEGORIES & BUSINESS RULES
+
+### 4.5.1 Product Category Definitions
+**Test Requirements:**
+- [ ] Write test for product category classification
+- [ ] Write test for category validation rules
+- [ ] Write test against historical order data patterns
+
+**Implementation Requirements:**
+- [ ] Define product categories based on business requirements:
+  - [ ] **Large Blankets**: Primary product, individual shipping cost calculation
+  - [ ] **Medium Blankets**: Primary product, individual shipping cost calculation  
+  - [ ] **Baby Blankets**: Primary product, individual shipping cost calculation
+  - [ ] **XL/Weighted Blankets**: Primary product, individual shipping cost calculation
+  - [ ] **Large Pet Beds**: Standalone product, individual shipping cost calculation
+  - [ ] **Pillows**: Square + Lumbar combined, individual shipping cost calculation
+  - [ ] **Gift Bags**: Accessories, contribute to total shipping cost division
+  - [ ] **Other**: Special case - no individual cost calculation (blank cost_per_product)
+
+**Acceptance Criteria:**
+- Clear category definitions for all product types
+- Business rules for cost allocation per category
+- Special handling for "Other" category (no per-product cost)
+
+**Quality Gate:** Product categorization matches historical data patterns
+
+---
+
+### 4.5.2 Order Combination Business Logic
+**Test Requirements:**
+- [ ] Write test for order combination aggregation
+- [ ] Write test for weighted average calculations
+- [ ] Write test for share percentage calculations
+- [ ] Write test for edge cases (single product orders, bulk orders)
+
+**Implementation Requirements:**
+- [ ] Aggregate orders by unique product combinations
+- [ ] Calculate weighted averages based on quantities:
+  - [ ] Total shipping cost ÷ total items = cost per product
+  - [ ] Weight by quantity of each product type across all orders
+  - [ ] Track both order share (% of orders) and unit share (% of units)
+- [ ] Handle special combinations:
+  - [ ] Orders with only "Other" products (no cost per product)
+  - [ ] Mixed orders with blankets + accessories
+  - [ ] Bulk orders (e.g., 30, 60 unit orders in example data)
+
+**Acceptance Criteria:**
+- Accurate weighted average calculations per product type
+- Proper handling of all order combination types
+- Share calculations sum to 100% across categories
+
+**Quality Gate:** Weighted averages match manual calculations within 5%
 
 ---
 
@@ -395,9 +474,13 @@ Process shipping invoices from FedEx, UPS, and USPS to calculate weighted averag
 ### 8.1 Primary Matching (Tracking Codes)
 **Test Requirements:**
 - [ ] Write test for exact tracking code matches
-- [ ] Write test for tracking code format variations
+- [ ] Write test for tracking code format variations:
+  - [ ] FedEx: 12-digit numeric (e.g., "391384417170")
+  - [ ] UPS: 18-character "1Z" + alphanumeric (e.g., "1ZY4B1990200179471")
+  - [ ] USPS: Various formats (to be determined from sample data)
 - [ ] Write test for missing tracking codes
 - [ ] Write test for match rate calculation
+- [ ] Write test for duplicate tracking code handling
 
 **Implementation Requirements:**
 - [ ] Implement tracking code-based matching
@@ -418,8 +501,14 @@ Process shipping invoices from FedEx, UPS, and USPS to calculate weighted averag
 **Test Requirements:**
 - [ ] Write test for customer name fuzzy matching
 - [ ] Write test for date range matching
-- [ ] Write test for combined customer/date matching
+- [ ] Write test for combined customer/date matching  
 - [ ] Write test for match confidence scoring
+- [ ] Write test for order reference matching:
+  - [ ] FedEx Reference 1: M-numbers (e.g., "M931508") → Order ID matching
+  - [ ] FedEx Reference 2: #-numbers (e.g., "#459871") → Direct order ID
+  - [ ] UPS Reference 1: "LOLAID" (70%) + order numbers (30%)
+  - [ ] UPS Reference 2: #-numbers + M-numbers (dual system)
+- [ ] Write test for account identifier validation (FedEx Reference 4: "LOL509")
 
 **Implementation Requirements:**
 - [ ] Implement fuzzy customer name matching
@@ -455,6 +544,80 @@ Process shipping invoices from FedEx, UPS, and USPS to calculate weighted averag
 - Provides clear match quality metrics
 
 **Quality Gate:** Match quality validation passes with clear quality metrics
+
+---
+
+## PHASE 8.5: SPECIAL CASE HANDLING
+
+### 8.5.1 Shipping Service Edge Cases
+**Test Requirements:**
+- [ ] Write test for UPS service variations:
+  - [ ] "Ground Undeliverable Return" (5 records in sample)
+  - [ ] "Ground Return to Sender" (1 record in sample) 
+  - [ ] Invalid service entries (value "0")
+- [ ] Write test for FedEx service edge cases:
+  - [ ] Overnight services (Priority/Standard)
+  - [ ] International shipments (if any)
+- [ ] Write test for cost handling of returns and undeliverable packages
+
+**Implementation Requirements:**
+- [ ] Handle return shipments appropriately in cost calculations
+- [ ] Flag undeliverable/return packages for separate analysis
+- [ ] Decide whether to include/exclude returns in weighted averages
+- [ ] Handle invalid service type entries gracefully
+
+**Acceptance Criteria:**
+- Clear business rules for handling returns and undeliverable packages
+- Appropriate cost allocation for edge case services
+- Proper flagging and reporting of unusual service types
+
+**Quality Gate:** All edge case services handled according to business rules
+
+---
+
+### 8.5.2 Data Quality Edge Cases
+**Test Requirements:**
+- [ ] Write test for missing recipient information (2/3,284 UPS records)
+- [ ] Write test for invalid country codes (value "0")
+- [ ] Write test for missing Reference 3 field (FedEx - unused column)
+- [ ] Write test for ZIP code format variations (5-digit vs ZIP+4)
+- [ ] Write test for extreme shipping costs ($1,133.83 in example)
+
+**Implementation Requirements:**
+- [ ] Handle missing recipient names (use alternative identifiers)
+- [ ] Standardize ZIP code formats (5-digit vs 9-digit)
+- [ ] Validate and clean invalid entries (value "0" in text fields)
+- [ ] Flag extreme outlier costs for manual review
+- [ ] Handle unused fields appropriately
+
+**Acceptance Criteria:**
+- Robust handling of all data quality issues found in sample data
+- Consistent data cleaning across all vendor formats
+- Outlier detection and flagging system
+
+**Quality Gate:** Data quality issues handled with <1% data loss
+
+---
+
+### 8.5.3 Historical Data Validation
+**Test Requirements:**
+- [ ] Write test validating against known match rate (0.36% missing orders)
+- [ ] Write test for order volume validation (38,805 orders in example)
+- [ ] Write test for cost distribution validation
+- [ ] Write test for product mix validation
+
+**Implementation Requirements:**
+- [ ] Compare processed results against historical benchmarks
+- [ ] Validate order counts and match rates
+- [ ] Check product distribution patterns
+- [ ] Flag significant deviations from expected patterns
+
+**Acceptance Criteria:**
+- Match rates within expected ranges (target: <1% missing orders)  
+- Product distributions align with historical patterns
+- Cost distributions fall within expected ranges
+
+**Quality Gate:** Results validate against historical data patterns
 
 ---
 
@@ -531,7 +694,17 @@ Process shipping invoices from FedEx, UPS, and USPS to calculate weighted averag
 ### 10.2 Final Output Generation
 **Test Requirements:**
 - [ ] Write test for output table structure
-- [ ] Write test for calculation accuracy
+- [ ] Write test for calculation accuracy against known values:
+  - [ ] Large Blankets: $16.00 weighted average
+  - [ ] Medium Blankets: $13.40 weighted average
+  - [ ] Baby Blankets: $11.23 weighted average
+  - [ ] XL/Weighted Blankets: $16.22 weighted average
+  - [ ] Large Pet Beds: $20.27 weighted average
+  - [ ] Pillows: $9.23 weighted average
+  - [ ] Overall Order Average: $19.85
+  - [ ] Overall Blanket Average: $14.93
+- [ ] Write test for share percentage calculations (must sum to 100%)
+- [ ] Write test for handling "Other" category (no cost per product)
 - [ ] Write test for output formatting
 - [ ] Write test for export functionality
 
