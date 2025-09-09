@@ -52,6 +52,6 @@ The project follows a 10-step process outlined in README.md:
 - **ipykernel**: Jupyter notebook support for data analysis
 
 ### Test Strategy
-**IMPORTANT: FOLLOW TEST-DRIVEN DEVELOPMENT (TDD) - WRITE TESTS FIRST, THEN IMPLEMENTATION**
+**IMPORTANT: FOLLOW TEST-DRIVEN DEVELOPMENT (TDD) - WRITE TESTS FIRST, THEN IMPLEMENTATION**. RED, GREEN, REFACTOR. WRITE TESTS THAT LET ERRORS BUBBLE UP - DO NOT HIDE ERRORS WITH ASSERTS / PASSES / ETC. DO NOT TAKE WORKAROUNDS TO MAKE THINGS PASS. DO NOT SKIP TESTS YOU CAN'T GET TO PASS. BE BRUTAL IN WRITING TESTS THAT ABSOLUTELY MUST PASS VIA REAL-WORLD PROPER IMPLEMENTATION
 
 Tests verify vendor detection against both synthetic filenames and actual data samples in the repository. The test suite includes parametrized tests that expect specific sample files to exist in `data/2025/08/`.
